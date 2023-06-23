@@ -9533,8 +9533,11 @@ Public Class FrmActivosFijos
             Dim MyDateTime As DateTime = dtpFechaNomSAP.Value
             Dim fecha, Mes, Anno, cl, conceptoPago As String
             cl = txtCLNominaSAP.Text
+            Dim round As Boolean = True
             conceptoPago = txtConceptoNomSAP.Text.ToUpper()
             Dim bancoSeleccionado As String = ""
+            Dim totalValores As Decimal = 0
+            Dim totalValores_Archivos As Integer = 0
 
             Dim inicio As Int16
             Dim nroLineas As Int16
@@ -9556,9 +9559,12 @@ Public Class FrmActivosFijos
                 Return
             End If
 
+            filePathExcel = txtRutaExcelGenerado.Text
+
+
+
 
             'verificar existencia el archvio excel, de lo contrario, creará el nuevo archivo
-            filePathExcel = txtRutaExcelGenerado.Text
             Dim exists As Boolean
             exists = System.IO.File.Exists(filePathExcel)
             If Not exists Then
@@ -9584,11 +9590,10 @@ Public Class FrmActivosFijos
             Dim fileContent As String = My.Computer.FileSystem.ReadAllText(filePath)
             Dim _lines As String() = System.IO.File.ReadAllLines(filePath)
             Dim arrayValores As New ArrayList()
-            Dim arrayValores2 As New ArrayList()
+
 
             fecha = MyDateTime.ToString("yyyyMMdd")
             Mes = MyDateTime.ToString("MMMM").ToUpper()
-
             Anno = MyDateTime.ToString("yyyy")
             Frm_Wait.Show()
 
@@ -9597,7 +9602,7 @@ Public Class FrmActivosFijos
             Dim dtExcelNomina As New DataTable
             Dim dtUltimaFila As New DataTable
             Dim rowExcel As DataRow
-            Dim rowExcelClone As DataRow
+
 
             dtExcelNomina.Columns.Add("znumdoc")
             dtExcelNomina.Columns.Add("ztipo")
@@ -9649,9 +9654,9 @@ Public Class FrmActivosFijos
             'acomodarlos fila a fila
             Dim lineas As String() = System.IO.File.ReadAllLines(filePath)
             Dim totalLineasPlano As Integer = lineas.Count()
-            Dim lineasXTabla As Integer = 8
+            Dim maxLineFile As Integer = 8
             Dim contadorArray As Integer = 0
-            Dim contadorLienasxTablas As Integer = 0
+            Dim contadorLineasxTablas As Integer = 0
             For Each line As String In lineas
 
                 arrayValores.Add(line.Substring(inicio, nroLineas))
@@ -9662,10 +9667,8 @@ Public Class FrmActivosFijos
 
 
 
-            Dim totalValores As Decimal = 0
 
-
-            If totalLineasPlano < lineasXTabla Then
+            If totalLineasPlano < maxLineFile Then
 
                 For i As Integer = 0 To lineas.Length - 1
                     Dim lineaArray() As String = arrayValores(i).Split(vbTab)
@@ -9709,12 +9712,32 @@ Public Class FrmActivosFijos
                         dtUltimaFila = dtExcelNomina
                     Next
                 Next
-
+                Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round)
+                CambiarValor_PrimeraFila(dtUltimaFila)
+                ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
+                LimpiarControles_NominaSAP()
             Else
 
-                While contadorLienasxTablas < lineasXTabla
+                'evaluar la cantidad de archivos que se deberá generar
+                'con respecto a la cantidad de líneas que se encuentren en el txt.
+                Dim nroArchivos_Generar As Decimal = Decimal.Parse(totalLineasPlano) / Decimal.Parse(maxLineFile)
 
-                    Dim lineArrayNew() As String = arrayValores(contadorLienasxTablas).Split(vbTab)
+                Dim nroLineas_Archivos As Decimal = Decimal.Parse(totalLineasPlano) / System.Math.Round(nroArchivos_Generar, MidpointRounding.AwayFromZero)
+
+
+                Dim numeroLineasxArchivo As Decimal = System.Math.Round(nroLineas_Archivos, MidpointRounding.AwayFromZero)
+                Dim numeroArchivos_Generar As Decimal = System.Math.Round(nroArchivos_Generar, MidpointRounding.AwayFromZero)
+
+                Dim diferenciaTotal_Lineas As Decimal = (numeroLineasxArchivo * numeroArchivos_Generar)
+
+
+                Dim posLineas As Integer = 0
+                Dim contadorArchivos As Integer = 0
+                Dim acumuladorLineas_Plano As Integer = 0
+                Do While contadorLineasxTablas <= numeroLineasxArchivo
+                    posLineas += 1
+
+                    Dim lineArrayNew() As String = arrayValores(contadorLineasxTablas).Split(vbTab)
                     For index As Integer = 0 To lineArrayNew.Length - 1
                         rowExcel = dtExcelNomina.NewRow
                         rowExcel("znumdoc") = "1"
@@ -9748,214 +9771,369 @@ Public Class FrmActivosFijos
 
                         dtExcelNomina.Rows.Add(rowExcel)
                         totalValores += Decimal.Parse(lineArrayNew(index).ToString())
-                        'contadorLienasxTablas += 1
                         dtUltimaFila = dtExcelNomina
 
                     Next
-                    contadorLienasxTablas += 1
+                    contadorLineasxTablas += 1
+
+                    If contadorLineasxTablas = numeroLineasxArchivo Then
+                        Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round)
+                        CambiarValor_PrimeraFila(dtUltimaFila)
+
+                        'es el primer archivo, tiene el nombre original
+                        ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
+                        dtExcelNomina.Clear()
+                        'LimpiarControles_NominaSAP()
+                        acumuladorLineas_Plano = posLineas
+                        contadorArchivos += 1
+                        Exit Do
+
+                    End If
+
+
+                Loop
+
+                Do While contadorArchivos < numeroArchivos_Generar
+
+
+                    contadorLineasxTablas = 0
+                    For k As Integer = posLineas To lineas.Length - 1
+                        Dim lineaArray() As String = arrayValores(k).Split(vbTab)
+                        For j As Integer = 0 To lineaArray.Length - 1
+
+                            rowExcel = dtExcelNomina.NewRow
+                            rowExcel("znumdoc") = "1"
+                            rowExcel("ztipo") = "2"
+                            rowExcel("blart") = "SA"
+                            rowExcel("bukrs") = cl
+                            rowExcel("waers") = "COP"
+                            rowExcel("budat") = fecha
+                            rowExcel("bldat") = fecha
+                            rowExcel("xblnr") = conceptoPago
+                            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                            rowExcel("ldgrp") = ""
+                            rowExcel("newbs") = "50"
+                            rowExcel("newko") = bancoSeleccionado
+                            rowExcel("hkont") = ""
+                            rowExcel("newum") = ""
+                            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
+                            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
+                            rowExcel("dmbe2") = ""
+                            rowExcel("mwskz") = ""
+                            rowExcel("kostl") = ""
+                            rowExcel("prctr") = "11A0403005"
+                            rowExcel("projk") = ""
+                            rowExcel("aufnr") = ""
+                            rowExcel("valut") = fecha
+                            rowExcel("zuonr") = ""
+                            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                            rowExcel("xref1") = ""
+                            rowExcel("xref3") = ""
+
+
+                            dtExcelNomina.Rows.Add(rowExcel)
+                            totalValores_Archivos += Decimal.Parse(lineaArray(j).ToString())
+                            'totalValores += Decimal.Parse(lineaArray(j).ToString())
+                            dtUltimaFila = dtExcelNomina
+
+                        Next
+                        contadorLineasxTablas += 1
+                        acumuladorLineas_Plano += 1
+                        If contadorLineasxTablas = numeroLineasxArchivo Then
+
+
+                            Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores_Archivos, round = False)
+                            CambiarValor_PrimeraFila(dtUltimaFila)
+                            Dim nuevaRuta = CrearRutaArchivo(filePathExcel, acumuladorLineas_Plano)
+                            'es el primer archivo, tiene el nombre original
+                            ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
+                            contadorArchivos += 1
+                            totalValores_Archivos = 0
+                            posLineas = acumuladorLineas_Plano
+                            dtExcelNomina.Clear()
+                            Exit For
+                        End If
+
+
+                    Next
+
+                    'Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round = False)
+                    'CambiarValor_PrimeraFila(dtUltimaFila)
+                    'Dim nuevaRuta = CrearRutaArchivo(filePathExcel)
+                    ''es el primer archivo, tiene el nombre original
+                    'ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
+                    'contadorArchivos -= 1
+                    'LimpiarControles_NominaSAP()
+                    'Return
+
+                Loop
+
+                If (totalLineasPlano - acumuladorLineas_Plano) <> 0 Then
+
+                    contadorLineasxTablas = 0
+                    For k As Integer = acumuladorLineas_Plano To lineas.Length - 1
+                        Dim lineaArray() As String = arrayValores(k).Split(vbTab)
+                        For j As Integer = 0 To lineaArray.Length - 1
+
+                            rowExcel = dtExcelNomina.NewRow
+                            rowExcel("znumdoc") = "1"
+                            rowExcel("ztipo") = "2"
+                            rowExcel("blart") = "SA"
+                            rowExcel("bukrs") = cl
+                            rowExcel("waers") = "COP"
+                            rowExcel("budat") = fecha
+                            rowExcel("bldat") = fecha
+                            rowExcel("xblnr") = conceptoPago
+                            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                            rowExcel("ldgrp") = ""
+                            rowExcel("newbs") = "50"
+                            rowExcel("newko") = bancoSeleccionado
+                            rowExcel("hkont") = ""
+                            rowExcel("newum") = ""
+                            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
+                            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
+                            rowExcel("dmbe2") = ""
+                            rowExcel("mwskz") = ""
+                            rowExcel("kostl") = ""
+                            rowExcel("prctr") = "11A0403005"
+                            rowExcel("projk") = ""
+                            rowExcel("aufnr") = ""
+                            rowExcel("valut") = fecha
+                            rowExcel("zuonr") = ""
+                            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                            rowExcel("xref1") = ""
+                            rowExcel("xref3") = ""
+
+
+                            dtExcelNomina.Rows.Add(rowExcel)
+                            totalValores_Archivos += Decimal.Parse(lineaArray(j).ToString())
+                            'totalValores += Decimal.Parse(lineaArray(j).ToString())
+                            dtUltimaFila = dtExcelNomina
+
+                        Next
+                        contadorLineasxTablas += 1
+                        acumuladorLineas_Plano += 1
+                        If acumuladorLineas_Plano = totalLineasPlano Then
+
+                            Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores_Archivos, round = False)
+                            CambiarValor_PrimeraFila(dtUltimaFila)
+                            Dim nuevaRuta = CrearRutaArchivo(filePathExcel, acumuladorLineas_Plano)
+                            'es el primer archivo, tiene el nombre original
+                            ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
+                            contadorArchivos += 1
+                            totalValores_Archivos = 0
+                            posLineas = acumuladorLineas_Plano
+                            dtExcelNomina.Clear()
+                            Exit For
+                        End If
+
+
+                    Next
+
+
+                End If
 
 
 
 
-                End While
 
 
 
                 'si el nro de lineas es superior al establecido 
-                For i As Integer = 0 To lineas.Length - 1
-                    Dim lineaArray() As String = arrayValores(i).Split(vbTab)
-                    If i <= lineasXTabla Then
+                'For i As Integer = 0 To lineas.Length - 1
+                '    Dim lineaArray() As String = arrayValores(i).Split(vbTab)
+                '    If i <= lineasXTabla Then
 
 
-                        'Dim line() As String = lineas(i).Split(vbTab)
-                        For j As Integer = 0 To lineaArray.Length - 1
+                '        'Dim line() As String = lineas(i).Split(vbTab)
+                '        For j As Integer = 0 To lineaArray.Length - 1
 
-                            rowExcel = dtExcelNomina.NewRow
-                            rowExcel("znumdoc") = "1"
-                            rowExcel("ztipo") = "2"
-                            rowExcel("blart") = "SA"
-                            rowExcel("bukrs") = cl
-                            rowExcel("waers") = "COP"
-                            rowExcel("budat") = fecha
-                            rowExcel("bldat") = fecha
-                            rowExcel("xblnr") = conceptoPago
-                            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("ldgrp") = ""
-                            rowExcel("newbs") = "50"
-                            rowExcel("newko") = bancoSeleccionado
-                            rowExcel("hkont") = ""
-                            rowExcel("newum") = ""
-                            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
-                            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
-                            rowExcel("dmbe2") = ""
-                            rowExcel("mwskz") = ""
-                            rowExcel("kostl") = ""
-                            rowExcel("prctr") = "11A0403005"
-                            rowExcel("projk") = ""
-                            rowExcel("aufnr") = ""
-                            rowExcel("valut") = fecha
-                            rowExcel("zuonr") = ""
-                            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("xref1") = ""
-                            rowExcel("xref3") = ""
-
-
-                            dtExcelNomina.Rows.Add(rowExcel)
-                            totalValores += Decimal.Parse(lineaArray(j).ToString())
-                            'contadorLienasxTablas += 1
-                            dtUltimaFila = dtExcelNomina
-
-                        Next
-
-                    ElseIf lineasXTabla < i Then
-
-                        Dim lastRow As DataRow = dtUltimaFila.Rows(dtUltimaFila.Rows.Count - 1)
-                        Dim last As Integer = dtUltimaFila.Rows.Count + 1
-
-                        Dim insertLastRow As DataRow
-                        insertLastRow = dtUltimaFila.NewRow
-
-                        insertLastRow("znumdoc") = "1"
-                        insertLastRow("ztipo") = "2"
-                        insertLastRow("blart") = "SA"
-                        insertLastRow("bukrs") = cl
-                        insertLastRow("waers") = "COP"
-                        insertLastRow("budat") = fecha
-                        insertLastRow("bldat") = fecha
-                        insertLastRow("xblnr") = conceptoPago
-                        insertLastRow("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                        insertLastRow("ldgrp") = ""
-                        insertLastRow("newbs") = "40"
-                        insertLastRow("newko") = "2505050100"
-                        insertLastRow("hkont") = ""
-                        insertLastRow("newum") = ""
-                        insertLastRow("wrbtr") = totalValores.ToString()
-                        insertLastRow("dmbtr") = totalValores.ToString()
-                        insertLastRow("dmbe2") = ""
-                        insertLastRow("mwskz") = ""
-                        insertLastRow("kostl") = ""
-                        insertLastRow("prctr") = "11A0403005"
-                        insertLastRow("projk") = ""
-                        insertLastRow("aufnr") = ""
-                        insertLastRow("valut") = fecha
-                        insertLastRow("zuonr") = ""
-                        insertLastRow("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                        insertLastRow("xref1") = ""
-                        insertLastRow("xref3") = ""
-
-                        dtUltimaFila.Rows.InsertAt(insertLastRow, last)
-                        dtUltimaFila.Rows.RemoveAt(0)
-
-                        'cambiar valor del campo"ztipo" en la primera fila, por 1 
-                        Dim rowFirst1 As DataRow = dtUltimaFila.Rows(0)
-                        Dim value1 As String = rowFirst1("ztipo").ToString()
-                        dtUltimaFila.Rows(0)("ztipo") = "1"
+                '            rowExcel = dtExcelNomina.NewRow
+                '            rowExcel("znumdoc") = "1"
+                '            rowExcel("ztipo") = "2"
+                '            rowExcel("blart") = "SA"
+                '            rowExcel("bukrs") = cl
+                '            rowExcel("waers") = "COP"
+                '            rowExcel("budat") = fecha
+                '            rowExcel("bldat") = fecha
+                '            rowExcel("xblnr") = conceptoPago
+                '            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("ldgrp") = ""
+                '            rowExcel("newbs") = "50"
+                '            rowExcel("newko") = bancoSeleccionado
+                '            rowExcel("hkont") = ""
+                '            rowExcel("newum") = ""
+                '            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
+                '            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
+                '            rowExcel("dmbe2") = ""
+                '            rowExcel("mwskz") = ""
+                '            rowExcel("kostl") = ""
+                '            rowExcel("prctr") = "11A0403005"
+                '            rowExcel("projk") = ""
+                '            rowExcel("aufnr") = ""
+                '            rowExcel("valut") = fecha
+                '            rowExcel("zuonr") = ""
+                '            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("xref1") = ""
+                '            rowExcel("xref3") = ""
 
 
-                        'ExportarDataTableAExcel(dtExcelNomina, filePathExcel)
-                        ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
-                        dtExcelNomina.Clear()
-                        'LimpiarControles_NominaSAP()
+                '            dtExcelNomina.Rows.Add(rowExcel)
+                '            totalValores += Decimal.Parse(lineaArray(j).ToString())
+                '            'contadorLienasxTablas += 1
+                '            dtUltimaFila = dtExcelNomina
+
+                '        Next
+
+                '    ElseIf lineasXTabla < i Then
+
+                '        Dim lastRow As DataRow = dtUltimaFila.Rows(dtUltimaFila.Rows.Count - 1)
+                '        Dim last As Integer = dtUltimaFila.Rows.Count + 1
+
+                '        Dim insertLastRow As DataRow
+                '        insertLastRow = dtUltimaFila.NewRow
+
+                '        insertLastRow("znumdoc") = "1"
+                '        insertLastRow("ztipo") = "2"
+                '        insertLastRow("blart") = "SA"
+                '        insertLastRow("bukrs") = cl
+                '        insertLastRow("waers") = "COP"
+                '        insertLastRow("budat") = fecha
+                '        insertLastRow("bldat") = fecha
+                '        insertLastRow("xblnr") = conceptoPago
+                '        insertLastRow("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                '        insertLastRow("ldgrp") = ""
+                '        insertLastRow("newbs") = "40"
+                '        insertLastRow("newko") = "2505050100"
+                '        insertLastRow("hkont") = ""
+                '        insertLastRow("newum") = ""
+                '        insertLastRow("wrbtr") = totalValores.ToString()
+                '        insertLastRow("dmbtr") = totalValores.ToString()
+                '        insertLastRow("dmbe2") = ""
+                '        insertLastRow("mwskz") = ""
+                '        insertLastRow("kostl") = ""
+                '        insertLastRow("prctr") = "11A0403005"
+                '        insertLastRow("projk") = ""
+                '        insertLastRow("aufnr") = ""
+                '        insertLastRow("valut") = fecha
+                '        insertLastRow("zuonr") = ""
+                '        insertLastRow("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                '        insertLastRow("xref1") = ""
+                '        insertLastRow("xref3") = ""
+
+                '        dtUltimaFila.Rows.InsertAt(insertLastRow, last)
+                '        dtUltimaFila.Rows.RemoveAt(0)
+
+                '        'cambiar valor del campo"ztipo" en la primera fila, por 1 
+                '        Dim rowFirst1 As DataRow = dtUltimaFila.Rows(0)
+                '        Dim value1 As String = rowFirst1("ztipo").ToString()
+                '        dtUltimaFila.Rows(0)("ztipo") = "1"
 
 
-                    Else
-
-                        'Dim dtExcelNomina_clone As DataTable = dtExcelNomina.Clone()
-                        'Dim line() As String = lineas(i).Split(vbTab)
-                        For j As Integer = 0 To lineaArray.Length - 1
-
-                            rowExcel = dtExcelNomina.NewRow
-                            rowExcel("znumdoc") = "1"
-                            rowExcel("ztipo") = "2"
-                            rowExcel("blart") = "SA"
-                            rowExcel("bukrs") = cl
-                            rowExcel("waers") = "COP"
-                            rowExcel("budat") = fecha
-                            rowExcel("bldat") = fecha
-                            rowExcel("xblnr") = conceptoPago
-                            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("ldgrp") = ""
-                            rowExcel("newbs") = "50"
-                            rowExcel("newko") = bancoSeleccionado
-                            rowExcel("hkont") = ""
-                            rowExcel("newum") = ""
-                            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
-                            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
-                            rowExcel("dmbe2") = ""
-                            rowExcel("mwskz") = ""
-                            rowExcel("kostl") = ""
-                            rowExcel("prctr") = "11A0403005"
-                            rowExcel("projk") = ""
-                            rowExcel("aufnr") = ""
-                            rowExcel("valut") = fecha
-                            rowExcel("zuonr") = ""
-                            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("xref1") = ""
-                            rowExcel("xref3") = ""
+                '        'ExportarDataTableAExcel(dtExcelNomina, filePathExcel)
+                '        ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
+                '        dtExcelNomina.Clear()
+                '        'LimpiarControles_NominaSAP()
 
 
-                            dtExcelNomina.Rows.Add(rowExcel)
-                            totalValores += Decimal.Parse(lineaArray(j).ToString())
-                            'contadorLienasxTablas += 1
-                            dtUltimaFila = dtExcelNomina
-                        Next
+                '    Else
 
-                        If i = totalLineasPlano Then
-                            Dim lastRow As DataRow = dtUltimaFila.Rows(dtUltimaFila.Rows.Count - 1)
-                            Dim last As Integer = dtUltimaFila.Rows.Count + 1
+                '        'Dim dtExcelNomina_clone As DataTable = dtExcelNomina.Clone()
+                '        'Dim line() As String = lineas(i).Split(vbTab)
+                '        For j As Integer = 0 To lineaArray.Length - 1
 
-                            Dim insertLastRow As DataRow
-                            insertLastRow = dtUltimaFila.NewRow
-
-                            insertLastRow("znumdoc") = "1"
-                            insertLastRow("ztipo") = "2"
-                            insertLastRow("blart") = "SA"
-                            insertLastRow("bukrs") = cl
-                            insertLastRow("waers") = "COP"
-                            insertLastRow("budat") = fecha
-                            insertLastRow("bldat") = fecha
-                            insertLastRow("xblnr") = conceptoPago
-                            insertLastRow("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                            insertLastRow("ldgrp") = ""
-                            insertLastRow("newbs") = "40"
-                            insertLastRow("newko") = "2505050100"
-                            insertLastRow("hkont") = ""
-                            insertLastRow("newum") = ""
-                            insertLastRow("wrbtr") = totalValores.ToString()
-                            insertLastRow("dmbtr") = totalValores.ToString()
-                            insertLastRow("dmbe2") = ""
-                            insertLastRow("mwskz") = ""
-                            insertLastRow("kostl") = ""
-                            insertLastRow("prctr") = "11A0403005"
-                            insertLastRow("projk") = ""
-                            insertLastRow("aufnr") = ""
-                            insertLastRow("valut") = fecha
-                            insertLastRow("zuonr") = ""
-                            insertLastRow("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                            insertLastRow("xref1") = ""
-                            insertLastRow("xref3") = ""
-
-                            dtUltimaFila.Rows.InsertAt(insertLastRow, last)
-                            'dtUltimaFila.Rows.RemoveAt(0)
-
-                            Dim rowFirst2 As DataRow = dtUltimaFila.Rows(0)
-                            Dim value2 As String = rowFirst2("ztipo").ToString()
-                            dtUltimaFila.Rows(0)("ztipo") = "1"
+                '            rowExcel = dtExcelNomina.NewRow
+                '            rowExcel("znumdoc") = "1"
+                '            rowExcel("ztipo") = "2"
+                '            rowExcel("blart") = "SA"
+                '            rowExcel("bukrs") = cl
+                '            rowExcel("waers") = "COP"
+                '            rowExcel("budat") = fecha
+                '            rowExcel("bldat") = fecha
+                '            rowExcel("xblnr") = conceptoPago
+                '            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("ldgrp") = ""
+                '            rowExcel("newbs") = "50"
+                '            rowExcel("newko") = bancoSeleccionado
+                '            rowExcel("hkont") = ""
+                '            rowExcel("newum") = ""
+                '            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
+                '            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
+                '            rowExcel("dmbe2") = ""
+                '            rowExcel("mwskz") = ""
+                '            rowExcel("kostl") = ""
+                '            rowExcel("prctr") = "11A0403005"
+                '            rowExcel("projk") = ""
+                '            rowExcel("aufnr") = ""
+                '            rowExcel("valut") = fecha
+                '            rowExcel("zuonr") = ""
+                '            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("xref1") = ""
+                '            rowExcel("xref3") = ""
 
 
-                            Dim testFile_ As System.IO.FileInfo
-                            testFile_ = My.Computer.FileSystem.GetFileInfo(filePathExcel)
-                            Dim folderPath_ As String = testFile_.DirectoryName
-                            Dim fileName_ As String = testFile_.Name
+                '            dtExcelNomina.Rows.Add(rowExcel)
+                '            totalValores += Decimal.Parse(lineaArray(j).ToString())
+                '            'contadorLienasxTablas += 1
+                '            dtUltimaFila = dtExcelNomina
+                '        Next
+
+                '        If i = totalLineasPlano Then
+                '            Dim lastRow As DataRow = dtUltimaFila.Rows(dtUltimaFila.Rows.Count - 1)
+                '            Dim last As Integer = dtUltimaFila.Rows.Count + 1
+
+                '            Dim insertLastRow As DataRow
+                '            insertLastRow = dtUltimaFila.NewRow
+
+                '            insertLastRow("znumdoc") = "1"
+                '            insertLastRow("ztipo") = "2"
+                '            insertLastRow("blart") = "SA"
+                '            insertLastRow("bukrs") = cl
+                '            insertLastRow("waers") = "COP"
+                '            insertLastRow("budat") = fecha
+                '            insertLastRow("bldat") = fecha
+                '            insertLastRow("xblnr") = conceptoPago
+                '            insertLastRow("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                '            insertLastRow("ldgrp") = ""
+                '            insertLastRow("newbs") = "40"
+                '            insertLastRow("newko") = "2505050100"
+                '            insertLastRow("hkont") = ""
+                '            insertLastRow("newum") = ""
+                '            insertLastRow("wrbtr") = totalValores.ToString()
+                '            insertLastRow("dmbtr") = totalValores.ToString()
+                '            insertLastRow("dmbe2") = ""
+                '            insertLastRow("mwskz") = ""
+                '            insertLastRow("kostl") = ""
+                '            insertLastRow("prctr") = "11A0403005"
+                '            insertLastRow("projk") = ""
+                '            insertLastRow("aufnr") = ""
+                '            insertLastRow("valut") = fecha
+                '            insertLastRow("zuonr") = ""
+                '            insertLastRow("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                '            insertLastRow("xref1") = ""
+                '            insertLastRow("xref3") = ""
+
+                '            dtUltimaFila.Rows.InsertAt(insertLastRow, last)
+                '            'dtUltimaFila.Rows.RemoveAt(0)
+
+                '            Dim rowFirst2 As DataRow = dtUltimaFila.Rows(0)
+                '            Dim value2 As String = rowFirst2("ztipo").ToString()
+                '            dtUltimaFila.Rows(0)("ztipo") = "1"
 
 
-                            ExportarDataTableAExcel(dtExcelNomina, folderPath_ + fileName_ + "1")
+                '            Dim testFile_ As System.IO.FileInfo
+                '            testFile_ = My.Computer.FileSystem.GetFileInfo(filePathExcel)
+                '            Dim folderPath_ As String = testFile_.DirectoryName
+                '            Dim fileName_ As String = testFile_.Name
 
-                        End If
 
-                    End If
+                '            ExportarDataTableAExcel(dtExcelNomina, folderPath_ + fileName_ + "1")
 
-                Next
+                '        End If
+
+                '    End If
+
+                'Next
 
 
             End If
@@ -9966,53 +10144,53 @@ Public Class FrmActivosFijos
 
 
             'insertar ultima fila despues de todos los registros.
-            If dtUltimaFila.Rows.Count > 0 Then
-                Dim lastRow As DataRow = dtUltimaFila.Rows(dtUltimaFila.Rows.Count - 1)
-                Dim last As Integer = dtUltimaFila.Rows.Count + 1
+            'If dtUltimaFila.Rows.Count > 0 Then
+            '    Dim lastRow As DataRow = dtUltimaFila.Rows(dtUltimaFila.Rows.Count - 1)
+            '    Dim last As Integer = dtUltimaFila.Rows.Count + 1
 
-                Dim insertLastRow As DataRow
-                insertLastRow = dtUltimaFila.NewRow
+            '    Dim insertLastRow As DataRow
+            '    insertLastRow = dtUltimaFila.NewRow
 
-                insertLastRow("znumdoc") = "1"
-                insertLastRow("ztipo") = "2"
-                insertLastRow("blart") = "SA"
-                insertLastRow("bukrs") = cl
-                insertLastRow("waers") = "COP"
-                insertLastRow("budat") = fecha
-                insertLastRow("bldat") = fecha
-                insertLastRow("xblnr") = conceptoPago
-                insertLastRow("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                insertLastRow("ldgrp") = ""
-                insertLastRow("newbs") = "40"
-                insertLastRow("newko") = "2505050100"
-                insertLastRow("hkont") = ""
-                insertLastRow("newum") = ""
-                insertLastRow("wrbtr") = totalValores.ToString()
-                insertLastRow("dmbtr") = totalValores.ToString()
-                insertLastRow("dmbe2") = ""
-                insertLastRow("mwskz") = ""
-                insertLastRow("kostl") = ""
-                insertLastRow("prctr") = "11A0403005"
-                insertLastRow("projk") = ""
-                insertLastRow("aufnr") = ""
-                insertLastRow("valut") = fecha
-                insertLastRow("zuonr") = ""
-                insertLastRow("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                insertLastRow("xref1") = ""
-                insertLastRow("xref3") = ""
+            '    insertLastRow("znumdoc") = "1"
+            '    insertLastRow("ztipo") = "2"
+            '    insertLastRow("blart") = "SA"
+            '    insertLastRow("bukrs") = cl
+            '    insertLastRow("waers") = "COP"
+            '    insertLastRow("budat") = fecha
+            '    insertLastRow("bldat") = fecha
+            '    insertLastRow("xblnr") = conceptoPago
+            '    insertLastRow("bktxt") = conceptoPago + " " + Mes + " " + Anno
+            '    insertLastRow("ldgrp") = ""
+            '    insertLastRow("newbs") = "40"
+            '    insertLastRow("newko") = "2505050100"
+            '    insertLastRow("hkont") = ""
+            '    insertLastRow("newum") = ""
+            '    insertLastRow("wrbtr") = totalValores.ToString()
+            '    insertLastRow("dmbtr") = totalValores.ToString()
+            '    insertLastRow("dmbe2") = ""
+            '    insertLastRow("mwskz") = ""
+            '    insertLastRow("kostl") = ""
+            '    insertLastRow("prctr") = "11A0403005"
+            '    insertLastRow("projk") = ""
+            '    insertLastRow("aufnr") = ""
+            '    insertLastRow("valut") = fecha
+            '    insertLastRow("zuonr") = ""
+            '    insertLastRow("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+            '    insertLastRow("xref1") = ""
+            '    insertLastRow("xref3") = ""
 
-                dtUltimaFila.Rows.InsertAt(insertLastRow, last)
-                dtUltimaFila.Rows.RemoveAt(0)
+            '    dtUltimaFila.Rows.InsertAt(insertLastRow, last)
+            '    dtUltimaFila.Rows.RemoveAt(0)
 
-            End If
+            'End If
 
 
 
 
             'cambiar valor del campo"ztipo" en la primera fila, por 1 
-            Dim rowFirst As DataRow = dtUltimaFila.Rows(0)
-            Dim value As String = rowFirst("ztipo").ToString()
-            dtUltimaFila.Rows(0)("ztipo") = "1"
+            'Dim rowFirst As DataRow = dtUltimaFila.Rows(0)
+            'Dim value As String = rowFirst("ztipo").ToString()
+            'dtUltimaFila.Rows(0)("ztipo") = "1"
 
             'Dim rowFirst As DataRow = dtExcelNomina.Rows(0)
             'Dim value As String = rowFirst("ztipo").ToString()
@@ -10020,20 +10198,18 @@ Public Class FrmActivosFijos
 
 
 
-            Dim testFile As System.IO.FileInfo
-            testFile = My.Computer.FileSystem.GetFileInfo(filePathExcel)
-            Dim folderPath As String = testFile.DirectoryName
-            Dim fileName As String = testFile.Name
+            'Dim testFile2 As System.IO.FileInfo
+            'testFile2 = My.Computer.FileSystem.GetFileInfo(filePathExcel)
+            'Dim folderPath2 As String = testFile2.DirectoryName
+            'Dim fileName2 As String = testFile.Name
 
 
 
 
 
-            ExportarDataTableAExcel(dtExcelNomina, folderPath + fileName + "1")
+            'ExportarDataTableAExcel(dtExcelNomina, folderPath + fileName + "1")
             'ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
             LimpiarControles_NominaSAP()
-
-
 
 
 
@@ -10061,11 +10237,92 @@ Public Class FrmActivosFijos
 
 
 
+
+    End Sub
+
+    Private Sub Filas_Finales(dtUltimaFila As DataTable, cl As String, fecha As String, conceptoPago As String, Mes As String, Anno As String, totalValores As Decimal, round As Boolean)
+        'insertar ultima fila despues de todos los registros.
+        If dtUltimaFila.Rows.Count > 0 Then
+            Dim lastRow As DataRow = dtUltimaFila.Rows(dtUltimaFila.Rows.Count - 1)
+            Dim last As Integer = dtUltimaFila.Rows.Count + 1
+
+            Dim insertLastRow As DataRow
+            insertLastRow = dtUltimaFila.NewRow
+
+            insertLastRow("znumdoc") = "1"
+            insertLastRow("ztipo") = "2"
+            insertLastRow("blart") = "SA"
+            insertLastRow("bukrs") = cl
+            insertLastRow("waers") = "COP"
+            insertLastRow("budat") = fecha
+            insertLastRow("bldat") = fecha
+            insertLastRow("xblnr") = conceptoPago
+            insertLastRow("bktxt") = conceptoPago + " " + Mes + " " + Anno
+            insertLastRow("ldgrp") = ""
+            insertLastRow("newbs") = "40"
+            insertLastRow("newko") = "2505050100"
+            insertLastRow("hkont") = ""
+            insertLastRow("newum") = ""
+            insertLastRow("wrbtr") = totalValores.ToString()
+            insertLastRow("dmbtr") = totalValores.ToString()
+            insertLastRow("dmbe2") = ""
+            insertLastRow("mwskz") = ""
+            insertLastRow("kostl") = ""
+            insertLastRow("prctr") = "11A0403005"
+            insertLastRow("projk") = ""
+            insertLastRow("aufnr") = ""
+            insertLastRow("valut") = fecha
+            insertLastRow("zuonr") = ""
+            insertLastRow("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+            insertLastRow("xref1") = ""
+            insertLastRow("xref3") = ""
+
+            dtUltimaFila.Rows.InsertAt(insertLastRow, last)
+            If round Then
+                dtUltimaFila.Rows.RemoveAt(0)
+            End If
+
+        End If
+
     End Sub
 
 
+    Private Sub CambiarValor_PrimeraFila(dtUltimaFila As DataTable)
+        'cambiar valor del campo"ztipo" en la primera fila, por 1 
+        Dim rowFirst As DataRow = dtUltimaFila.Rows(0)
+        Dim value As String = rowFirst("ztipo").ToString()
+        dtUltimaFila.Rows(0)("ztipo") = "1"
+
+        'Dim rowFirst As DataRow = dtExcelNomina.Rows(0)
+        'Dim value As String = rowFirst("ztipo").ToString()
+        'dtExcelNomina.Rows(0)("ztipo") = "1"
+    End Sub
+
+    Function CrearRutaArchivo(filePathExcel As String, contadorFilasTabla As Integer) As String
+        Dim excelApp As New Excel.Application
+        Dim excelBook As Excel.Workbook = excelApp.Workbooks.Add
+        Dim exists As Boolean
 
 
+        Dim testFile As System.IO.FileInfo
+        testFile = My.Computer.FileSystem.GetFileInfo(filePathExcel)
+        Dim folderPath As String = testFile.DirectoryName
+        Dim fileName As String = System.IO.Path.GetFileNameWithoutExtension(filePathExcel)
+        Dim fileExt As String = System.IO.Path.GetExtension(filePathExcel)
+        Dim newFileName As String = fileName + "_" + contadorFilasTabla.ToString() + fileExt
+        Dim newRutaFull As String = folderPath + "\" + newFileName
+
+        exists = System.IO.File.Exists(newRutaFull)
+        If Not exists Then
+            excelBook.SaveAs(newRutaFull)
+            excelBook.Close()
+            excelApp.Quit()
+            excelBook = Nothing
+            excelApp = Nothing
+
+        End If
+        Return newRutaFull
+    End Function
 
     Private Sub LimpiarControles_NominaSAP()
         txtRutaExcelGenerado.Text = ""
