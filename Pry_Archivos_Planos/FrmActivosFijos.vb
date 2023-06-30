@@ -9533,7 +9533,7 @@ Public Class FrmActivosFijos
             Dim MyDateTime As DateTime = dtpFechaNomSAP.Value
             Dim fecha, Mes, Anno, cl, conceptoPago As String
             cl = txtCLNominaSAP.Text
-            Dim round As Boolean = True
+            Dim round As Boolean = False
             conceptoPago = txtConceptoNomSAP.Text.ToUpper()
             Dim bancoSeleccionado As String = ""
             Dim totalValores As Decimal = 0
@@ -9657,7 +9657,7 @@ Public Class FrmActivosFijos
             'acomodarlos fila a fila
             Dim lineas As String() = System.IO.File.ReadAllLines(filePath)
             Dim totalLineasPlano As Decimal = lineas.Count()
-            Dim maxLineFile As Decimal = 5
+            Dim max_LineasxArchivo As Decimal = 900
             Dim contadorArray As Decimal = 0
             Dim contadorLineasxTablas As Decimal = 0
             For Each line As String In lineas
@@ -9671,7 +9671,7 @@ Public Class FrmActivosFijos
 
 
 
-            If totalLineasPlano <= maxLineFile Then
+            If totalLineasPlano <= max_LineasxArchivo Then
 
                 For i As Integer = 0 To lineas.Length - 1
                     Dim lineaArray() As String = arrayValores(i).Split(vbTab)
@@ -9715,241 +9715,333 @@ Public Class FrmActivosFijos
                         dtUltimaFila = dtExcelNomina
                     Next
                 Next
-                Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round)
-                CambiarValor_PrimeraFila(dtUltimaFila)
+                Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round = True)
+                CambiarValor_PrimeraFila(dtUltimaFila, round = True)
                 ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
+                'ExportarDataTableAExcel(dtUltimaFila, filePathExcel.Replace(".xlsx", "") + "_" + contadorArchivos.ToString())
                 dtUltimaFila.Clear()
+                dtExcelNomina.Clear()
                 totalValores = Nothing
                 arrayValores = Nothing
+                round = False
                 LimpiarControles_NominaSAP()
                 'Dispose()
             Else
 
-                'evaluar la cantidad de archivos que se deberá generar
-                'con respecto a la cantidad de líneas que se encuentren en el txt.
-                Dim nroArchivos_Generar As Decimal = totalLineasPlano / maxLineFile
-                Dim nroLineas_Archivos As Decimal = totalLineasPlano / System.Math.Round(nroArchivos_Generar, MidpointRounding.AwayFromZero)
 
-                Dim numeroLineasxArchivo As Decimal = System.Math.Round(nroLineas_Archivos, MidpointRounding.AwayFromZero)
-                Dim numeroArchivos_Generar As Decimal = System.Math.Round(nroArchivos_Generar, MidpointRounding.AwayFromZero)
+                Dim contadorArchivos As Integer = 0
+                Dim contadorLineas As Integer = 0
 
-                'Dim diferenciaTotal_Lineas As Decimal = (numeroLineasxArchivo * numeroArchivos_Generar)
+                For i As Integer = 0 To lineas.Length - 1
+                    Dim lineaArray() As String = arrayValores(i).Split(vbTab)
 
+                    'Dim line() As String = lineas(i).Split(vbTab)
+                    'For j As Integer = 0 To lineaArray.Length - 1
 
-                Dim posLineas As Decimal = 0
-                Dim contadorArchivos As Decimal = 0
-                Dim acumuladorLineas_Plano As Decimal = 0
-                Try
-                    Do While contadorLineasxTablas <= numeroLineasxArchivo
-                        posLineas += 1
-
-                        Dim lineArrayNew() As String = arrayValores(contadorLineasxTablas).Split(vbTab)
-                        For index As Decimal = 0 To lineArrayNew.Length - 1
-                            rowExcel = dtExcelNomina.NewRow
-                            rowExcel("znumdoc") = "1"
-                            rowExcel("ztipo") = "2"
-                            rowExcel("blart") = "SA"
-                            rowExcel("bukrs") = cl
-                            rowExcel("waers") = "COP"
-                            rowExcel("budat") = fecha
-                            rowExcel("bldat") = fecha
-                            rowExcel("xblnr") = conceptoPago
-                            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("ldgrp") = ""
-                            rowExcel("newbs") = "50"
-                            rowExcel("newko") = bancoSeleccionado
-                            rowExcel("hkont") = ""
-                            rowExcel("newum") = ""
-                            rowExcel("wrbtr") = String.Concat("-", lineArrayNew(index).ToString()) 'valores 
-                            rowExcel("dmbtr") = String.Concat("-", lineArrayNew(index).ToString()) 'valores
-                            rowExcel("dmbe2") = ""
-                            rowExcel("mwskz") = ""
-                            rowExcel("kostl") = ""
-                            rowExcel("prctr") = "11A0403005"
-                            rowExcel("projk") = ""
-                            rowExcel("aufnr") = ""
-                            rowExcel("valut") = fecha
-                            rowExcel("zuonr") = ""
-                            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("xref1") = ""
-                            rowExcel("xref3") = ""
+                    rowExcel = dtExcelNomina.NewRow
+                    rowExcel("znumdoc") = "1"
+                    rowExcel("ztipo") = "2"
+                    rowExcel("blart") = "SA"
+                    rowExcel("bukrs") = cl
+                    rowExcel("waers") = "COP"
+                    rowExcel("budat") = fecha
+                    rowExcel("bldat") = fecha
+                    rowExcel("xblnr") = conceptoPago
+                    rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                    rowExcel("ldgrp") = ""
+                    rowExcel("newbs") = "50"
+                    rowExcel("newko") = bancoSeleccionado
+                    rowExcel("hkont") = ""
+                    rowExcel("newum") = ""
+                    rowExcel("wrbtr") = String.Concat("-", lineaArray(0).ToString()) 'valores 
+                    rowExcel("dmbtr") = String.Concat("-", lineaArray(0).ToString()) 'valores
+                    rowExcel("dmbe2") = ""
+                    rowExcel("mwskz") = ""
+                    rowExcel("kostl") = ""
+                    rowExcel("prctr") = "11A0403005"
+                    rowExcel("projk") = ""
+                    rowExcel("aufnr") = ""
+                    rowExcel("valut") = fecha
+                    rowExcel("zuonr") = ""
+                    rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                    rowExcel("xref1") = ""
+                    rowExcel("xref3") = ""
 
 
-                            dtExcelNomina.Rows.Add(rowExcel)
-                            totalValores += Decimal.Parse(lineArrayNew(index).ToString())
-                            dtUltimaFila = dtExcelNomina
-
-                        Next
-                        contadorLineasxTablas += 1
-
-                        If contadorLineasxTablas = numeroLineasxArchivo Then
-                            Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round)
-                            CambiarValor_PrimeraFila(dtUltimaFila)
-
-                            'es el primer archivo, tiene el nombre original
-                            ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
-                            'ExportarDataTableAExcel(dtUltimaFila, filePathExcel)
-                            dtExcelNomina.Clear()
-                            'LimpiarControles_NominaSAP()
-                            acumuladorLineas_Plano = posLineas
-                            contadorArchivos += 1
-                            contadorLineasxTablas = Nothing
-                            'Dispose()
-                            Exit Do
-
+                    dtExcelNomina.Rows.Add(rowExcel)
+                    totalValores += Decimal.Parse(lineaArray(0).ToString())
+                    dtUltimaFila = dtExcelNomina
+                    contadorLineas += 1
+                    If contadorLineas >= max_LineasxArchivo Then
+                        contadorArchivos += 1
+                        If contadorArchivos <= 1 Then
+                            round = True
                         End If
 
+                        Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round)
+                        CambiarValor_PrimeraFila(dtUltimaFila, round)
+                        ExportarDataTableAExcel(dtUltimaFila, filePathExcel.Replace(".xlsx", "") + "_" + contadorArchivos.ToString())
+                        dtUltimaFila.Clear()
+                        dtExcelNomina.Clear()
+                        totalValores = 0
+                        contadorLineas = 0
+                        round = False
 
-                    Loop
-                Catch ex As Exception
-                    MessageBox.Show(ex.Message)
-                End Try
-
-
-                Do While contadorArchivos < numeroArchivos_Generar
-
-                    contadorLineasxTablas = 0
-                    For k As Decimal = posLineas To lineas.Length - 1
-                        Dim lineaArray() As String = arrayValores(k).Split(vbTab)
-                        For j As Integer = 0 To lineaArray.Length - 1
-
-                            rowExcel = dtExcelNomina.NewRow
-                            rowExcel("znumdoc") = "1"
-                            rowExcel("ztipo") = "2"
-                            rowExcel("blart") = "SA"
-                            rowExcel("bukrs") = cl
-                            rowExcel("waers") = "COP"
-                            rowExcel("budat") = fecha
-                            rowExcel("bldat") = fecha
-                            rowExcel("xblnr") = conceptoPago
-                            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("ldgrp") = ""
-                            rowExcel("newbs") = "50"
-                            rowExcel("newko") = bancoSeleccionado
-                            rowExcel("hkont") = ""
-                            rowExcel("newum") = ""
-                            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
-                            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
-                            rowExcel("dmbe2") = ""
-                            rowExcel("mwskz") = ""
-                            rowExcel("kostl") = ""
-                            rowExcel("prctr") = "11A0403005"
-                            rowExcel("projk") = ""
-                            rowExcel("aufnr") = ""
-                            rowExcel("valut") = fecha
-                            rowExcel("zuonr") = ""
-                            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                            rowExcel("xref1") = ""
-                            rowExcel("xref3") = ""
+                    End If
 
 
-                            dtExcelNomina.Rows.Add(rowExcel)
-                            totalValores_Archivos += Decimal.Parse(lineaArray(j).ToString())
-                            'totalValores += Decimal.Parse(lineaArray(j).ToString())
-                            dtUltimaFila = dtExcelNomina
+                    'Next
+                Next
 
-                        Next
-                        contadorLineasxTablas += 1
-                        acumuladorLineas_Plano += 1
-                        If contadorLineasxTablas = numeroLineasxArchivo Then
-
-                            Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores_Archivos, round = False)
-                            CambiarValor_PrimeraFila(dtUltimaFila)
-                            Dim nuevaRuta = CrearRutaArchivo(filePathExcel, acumuladorLineas_Plano)
-                            'es el primer archivo, tiene el nombre original
-                            'ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
-                            ExportarDataTableAExcel(dtUltimaFila, nuevaRuta)
-                            contadorArchivos += 1
-                            totalValores_Archivos = Nothing
-                            contadorLineasxTablas = Nothing
-                            posLineas = acumuladorLineas_Plano
-                            dtExcelNomina.Clear()
-                            Exit For
-                        End If
-
-                    Next
-                    'Dispose()
-
-                    'Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round = False)
+                If contadorArchivos = 0 Or contadorLineas > 0 Then
+                    contadorArchivos += 1
+                    Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round)
                     'CambiarValor_PrimeraFila(dtUltimaFila)
-                    'Dim nuevaRuta = CrearRutaArchivo(filePathExcel)
-                    ''es el primer archivo, tiene el nombre original
-                    'ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
-                    'contadorArchivos -= 1
-                    'LimpiarControles_NominaSAP()
-                    'Return
-
-                Loop
-
-                If (totalLineasPlano - acumuladorLineas_Plano) <> 0 Then
-                    Try
-                        contadorLineasxTablas = 0
-                        For k As Integer = acumuladorLineas_Plano To lineas.Length - 1
-                            Dim lineaArray() As String = arrayValores(k).Split(vbTab)
-                            For j As Integer = 0 To lineaArray.Length - 1
-
-                                rowExcel = dtExcelNomina.NewRow
-                                rowExcel("znumdoc") = "1"
-                                rowExcel("ztipo") = "2"
-                                rowExcel("blart") = "SA"
-                                rowExcel("bukrs") = cl
-                                rowExcel("waers") = "COP"
-                                rowExcel("budat") = fecha
-                                rowExcel("bldat") = fecha
-                                rowExcel("xblnr") = conceptoPago
-                                rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
-                                rowExcel("ldgrp") = ""
-                                rowExcel("newbs") = "50"
-                                rowExcel("newko") = bancoSeleccionado
-                                rowExcel("hkont") = ""
-                                rowExcel("newum") = ""
-                                rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
-                                rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
-                                rowExcel("dmbe2") = ""
-                                rowExcel("mwskz") = ""
-                                rowExcel("kostl") = ""
-                                rowExcel("prctr") = "11A0403005"
-                                rowExcel("projk") = ""
-                                rowExcel("aufnr") = ""
-                                rowExcel("valut") = fecha
-                                rowExcel("zuonr") = ""
-                                rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
-                                rowExcel("xref1") = ""
-                                rowExcel("xref3") = ""
-
-
-                                dtExcelNomina.Rows.Add(rowExcel)
-                                totalValores_Archivos += Decimal.Parse(lineaArray(j).ToString())
-                                'totalValores += Decimal.Parse(lineaArray(j).ToString())
-                                dtUltimaFila = dtExcelNomina
-
-                            Next
-                            contadorLineasxTablas += 1
-                            acumuladorLineas_Plano += 1
-                            If acumuladorLineas_Plano = totalLineasPlano Then
-
-                                Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores_Archivos, round = False)
-                                CambiarValor_PrimeraFila(dtUltimaFila)
-                                Dim nuevaRuta = CrearRutaArchivo(filePathExcel, acumuladorLineas_Plano)
-                                'es el primer archivo, tiene el nombre original
-                                'ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
-                                ExportarDataTableAExcel(dtUltimaFila, nuevaRuta)
-                                contadorArchivos += 1
-                                totalValores_Archivos = Nothing
-                                posLineas = acumuladorLineas_Plano
-                                dtExcelNomina.Clear()
-                                Exit For
-                            End If
-
-
-                        Next
-                        'Dispose()
-                    Catch ex As Exception
-                        MessageBox.Show(ex.Message)
-                    End Try
-
-
+                    ExportarDataTableAExcel(dtUltimaFila, filePathExcel.Replace(".xlsx", "") + "_" + contadorArchivos.ToString())
+                    dtUltimaFila.Clear()
+                    dtExcelNomina.Clear()
+                    totalValores = 0
+                    round = False
                 End If
+
+
+
+
+
+
+
+
+
+
+
+                '''''
+                'evaluar la cantidad de archivos que se deberán generar
+                'con respecto a la cantidad de líneas que se encuentren en el archivo txt.
+                '''''
+                'Dim nroArchivos_Generar As Decimal = totalLineasPlano / max_LineasxArchivo
+                'Dim nroLineas_Archivos As Decimal = totalLineasPlano / System.Math.Round(nroArchivos_Generar, MidpointRounding.AwayFromZero)
+
+                'Dim numeroLineasxArchivo As Decimal = System.Math.Round(nroLineas_Archivos, MidpointRounding.AwayFromZero)
+                'Dim numeroArchivos_Generar As Decimal = System.Math.Round(nroArchivos_Generar, MidpointRounding.AwayFromZero)
+
+                ''Dim diferenciaTotal_Lineas As Decimal = (numeroLineasxArchivo * numeroArchivos_Generar)
+
+
+                'Dim posLineas As Decimal = 0
+                ''Dim contadorArchivos As Decimal = 0
+                'Dim acumuladorLineas_Plano As Decimal = 0
+                'Try
+                '    Do While contadorLineasxTablas <= numeroLineasxArchivo
+                '        posLineas += 1
+
+                '        Dim lineArrayNew() As String = arrayValores(contadorLineasxTablas).Split(vbTab)
+                '        For index As Decimal = 0 To lineArrayNew.Length - 1
+                '            rowExcel = dtExcelNomina.NewRow
+                '            rowExcel("znumdoc") = "1"
+                '            rowExcel("ztipo") = "2"
+                '            rowExcel("blart") = "SA"
+                '            rowExcel("bukrs") = cl
+                '            rowExcel("waers") = "COP"
+                '            rowExcel("budat") = fecha
+                '            rowExcel("bldat") = fecha
+                '            rowExcel("xblnr") = conceptoPago
+                '            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("ldgrp") = ""
+                '            rowExcel("newbs") = "50"
+                '            rowExcel("newko") = bancoSeleccionado
+                '            rowExcel("hkont") = ""
+                '            rowExcel("newum") = ""
+                '            rowExcel("wrbtr") = String.Concat("-", lineArrayNew(index).ToString()) 'valores 
+                '            rowExcel("dmbtr") = String.Concat("-", lineArrayNew(index).ToString()) 'valores
+                '            rowExcel("dmbe2") = ""
+                '            rowExcel("mwskz") = ""
+                '            rowExcel("kostl") = ""
+                '            rowExcel("prctr") = "11A0403005"
+                '            rowExcel("projk") = ""
+                '            rowExcel("aufnr") = ""
+                '            rowExcel("valut") = fecha
+                '            rowExcel("zuonr") = ""
+                '            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("xref1") = ""
+                '            rowExcel("xref3") = ""
+
+
+                '            dtExcelNomina.Rows.Add(rowExcel)
+                '            totalValores += Decimal.Parse(lineArrayNew(index).ToString())
+                '            dtUltimaFila = dtExcelNomina
+
+                '        Next
+                '        contadorLineasxTablas += 1
+
+                '        If contadorLineasxTablas = numeroLineasxArchivo Then
+                '            Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round)
+                '            CambiarValor_PrimeraFila(dtUltimaFila)
+
+                '            'es el primer archivo, tiene el nombre original(no se altera el nombre del archivo excel)
+                '            ExportToExcel(dtUltimaFila, filePathExcel, "Hoja1")
+                '            'ExportarDataTableAExcel(dtUltimaFila, filePathExcel)
+                '            dtUltimaFila.Clear()
+                '            dtExcelNomina.Clear()
+                '            acumuladorLineas_Plano = posLineas
+                '            contadorArchivos += 1
+                '            contadorLineasxTablas = Nothing
+                '            'LimpiarControles_NominaSAP()
+                '            'Dispose()
+                '            Continue Do
+
+                '        End If
+
+
+                '    Loop
+                'Catch ex As Exception
+                '    MessageBox.Show(ex.Message)
+                'End Try
+
+
+                'Do While contadorArchivos < numeroArchivos_Generar
+
+                '    contadorLineasxTablas = 0
+                '    For k As Decimal = posLineas To lineas.Length - 1
+                '        Dim lineaArray() As String = arrayValores(k).Split(vbTab)
+                '        For j As Integer = 0 To lineaArray.Length - 1
+
+                '            rowExcel = dtExcelNomina.NewRow
+                '            rowExcel("znumdoc") = "1"
+                '            rowExcel("ztipo") = "2"
+                '            rowExcel("blart") = "SA"
+                '            rowExcel("bukrs") = cl
+                '            rowExcel("waers") = "COP"
+                '            rowExcel("budat") = fecha
+                '            rowExcel("bldat") = fecha
+                '            rowExcel("xblnr") = conceptoPago
+                '            rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("ldgrp") = ""
+                '            rowExcel("newbs") = "50"
+                '            rowExcel("newko") = bancoSeleccionado
+                '            rowExcel("hkont") = ""
+                '            rowExcel("newum") = ""
+                '            rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
+                '            rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
+                '            rowExcel("dmbe2") = ""
+                '            rowExcel("mwskz") = ""
+                '            rowExcel("kostl") = ""
+                '            rowExcel("prctr") = "11A0403005"
+                '            rowExcel("projk") = ""
+                '            rowExcel("aufnr") = ""
+                '            rowExcel("valut") = fecha
+                '            rowExcel("zuonr") = ""
+                '            rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                '            rowExcel("xref1") = ""
+                '            rowExcel("xref3") = ""
+
+
+                '            dtExcelNomina.Rows.Add(rowExcel)
+                '            totalValores_Archivos += Decimal.Parse(lineaArray(j).ToString())
+                '            'totalValores += Decimal.Parse(lineaArray(j).ToString())
+                '            dtUltimaFila = dtExcelNomina
+
+                '        Next
+                '        contadorLineasxTablas += 1
+                '        acumuladorLineas_Plano += 1
+                '        If contadorLineasxTablas = numeroLineasxArchivo Then
+
+                '            Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores_Archivos, round = False)
+                '            CambiarValor_PrimeraFila(dtUltimaFila)
+                '            Dim nuevaRuta = CrearRutaArchivo(filePathExcel, acumuladorLineas_Plano)
+                '            'es el primer archivo, tiene el nombre original
+                '            'ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
+                '            ExportarDataTableAExcel(dtUltimaFila, nuevaRuta)
+                '            contadorArchivos += 1
+                '            totalValores_Archivos = Nothing
+                '            contadorLineasxTablas = Nothing
+                '            posLineas = acumuladorLineas_Plano
+                '            dtExcelNomina.Clear()
+                '            Continue For
+                '        End If
+
+                '    Next
+                '    'Dispose()
+
+                '    'Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores, round = False)
+                '    'CambiarValor_PrimeraFila(dtUltimaFila)
+                '    'Dim nuevaRuta = CrearRutaArchivo(filePathExcel)
+                '    ''es el primer archivo, tiene el nombre original
+                '    'ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
+                '    'contadorArchivos -= 1
+                '    'LimpiarControles_NominaSAP()
+                '    'Return
+
+                'Loop
+
+                'If (totalLineasPlano - acumuladorLineas_Plano) <> 0 Then
+                '    Try
+                '        contadorLineasxTablas = 0
+                '        For k As Integer = acumuladorLineas_Plano To lineas.Length - 1
+                '            Dim lineaArray() As String = arrayValores(k).Split(vbTab)
+                '            For j As Integer = 0 To lineaArray.Length - 1
+
+                '                rowExcel = dtExcelNomina.NewRow
+                '                rowExcel("znumdoc") = "1"
+                '                rowExcel("ztipo") = "2"
+                '                rowExcel("blart") = "SA"
+                '                rowExcel("bukrs") = cl
+                '                rowExcel("waers") = "COP"
+                '                rowExcel("budat") = fecha
+                '                rowExcel("bldat") = fecha
+                '                rowExcel("xblnr") = conceptoPago
+                '                rowExcel("bktxt") = conceptoPago + " " + Mes + " " + Anno
+                '                rowExcel("ldgrp") = ""
+                '                rowExcel("newbs") = "50"
+                '                rowExcel("newko") = bancoSeleccionado
+                '                rowExcel("hkont") = ""
+                '                rowExcel("newum") = ""
+                '                rowExcel("wrbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores 
+                '                rowExcel("dmbtr") = String.Concat("-", lineaArray(j).ToString()) 'valores
+                '                rowExcel("dmbe2") = ""
+                '                rowExcel("mwskz") = ""
+                '                rowExcel("kostl") = ""
+                '                rowExcel("prctr") = "11A0403005"
+                '                rowExcel("projk") = ""
+                '                rowExcel("aufnr") = ""
+                '                rowExcel("valut") = fecha
+                '                rowExcel("zuonr") = ""
+                '                rowExcel("sgtxt") = conceptoPago + " " + Mes + " " + Anno
+                '                rowExcel("xref1") = ""
+                '                rowExcel("xref3") = ""
+
+
+                '                dtExcelNomina.Rows.Add(rowExcel)
+                '                totalValores_Archivos += Decimal.Parse(lineaArray(j).ToString())
+                '                'totalValores += Decimal.Parse(lineaArray(j).ToString())
+                '                dtUltimaFila = dtExcelNomina
+
+                '            Next
+                '            contadorLineasxTablas += 1
+                '            acumuladorLineas_Plano += 1
+                '            If acumuladorLineas_Plano = totalLineasPlano Then
+
+                '                Filas_Finales(dtUltimaFila, cl, fecha, conceptoPago, Mes, Anno, totalValores_Archivos, round = False)
+                '                CambiarValor_PrimeraFila(dtUltimaFila)
+                '                Dim nuevaRuta = CrearRutaArchivo(filePathExcel, acumuladorLineas_Plano)
+                '                'es el primer archivo, tiene el nombre original
+                '                'ExportToExcel(dtUltimaFila, nuevaRuta, "Hoja1")
+                '                ExportarDataTableAExcel(dtUltimaFila, nuevaRuta)
+                '                contadorArchivos += 1
+                '                totalValores_Archivos = Nothing
+                '                posLineas = acumuladorLineas_Plano
+                '                dtExcelNomina.Clear()
+                '                Continue For
+                '            End If
+
+
+                '        Next
+                '        'Dispose()
+                '    Catch ex As Exception
+                '        MessageBox.Show(ex.Message)
+                '    End Try
+
+
+                'End If
 
 
 
@@ -9968,29 +10060,10 @@ Public Class FrmActivosFijos
 
 
 
-
-
-
-
-
-            'ExportToExcel(dtExcelNomina, "C:\Users\edwin.martinez\Downloads\BANCOLOMBIA-20230602T000546Z-001\plano.xlsx", "Hoja1")
-
-            'System.Diagnostics.Process.Start(".\Users\edwin.martinez\Downloads\BANCOLOMBIA-20230602T000546Z-001\exportadoExcel.xlsx")
-
-
-
         Catch ex As Exception
 
             MessageBox.Show(ex.Message)
         End Try
-
-
-
-
-
-
-
-
 
 
     End Sub
@@ -10042,11 +10115,15 @@ Public Class FrmActivosFijos
     End Sub
 
 
-    Private Sub CambiarValor_PrimeraFila(dtUltimaFila As DataTable)
+    Private Sub CambiarValor_PrimeraFila(dtUltimaFila As DataTable, round As Boolean)
         'cambiar valor del campo"ztipo" en la primera fila, por 1 
-        Dim rowFirst As DataRow = dtUltimaFila.Rows(0)
-        Dim value As String = rowFirst("ztipo").ToString()
-        dtUltimaFila.Rows(0)("ztipo") = "1"
+        If round Then
+            Dim rowFirst As DataRow = dtUltimaFila.Rows(0)
+            Dim value As String = rowFirst("ztipo").ToString()
+            dtUltimaFila.Rows(0)("ztipo") = "1"
+
+        End If
+
 
         'Dim rowFirst As DataRow = dtExcelNomina.Rows(0)
         'Dim value As String = rowFirst("ztipo").ToString()
@@ -10084,6 +10161,7 @@ Public Class FrmActivosFijos
         txtConceptoNomSAP.Text = ""
         txtRutaNomPlano.Text = ""
         cboBancoSap.Text = ""
+        Frm_Wait.Close()
 
     End Sub
 
@@ -10126,6 +10204,7 @@ Public Class FrmActivosFijos
         System.Runtime.InteropServices.Marshal.ReleaseComObject(hojaExcel)
         System.Runtime.InteropServices.Marshal.ReleaseComObject(libroExcel)
         System.Runtime.InteropServices.Marshal.ReleaseComObject(excelApp)
+
 
         ' Mostrar un mensaje de éxito
         MessageBox.Show("Exportación completada exitosamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information)
